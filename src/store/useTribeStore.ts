@@ -20,7 +20,7 @@ interface TribeState {
 
     // Actions
     connectTribe: (url: string) => Promise<boolean>
-    syncTribe: () => Promise<void>
+    syncTribe: (dateKey?: string) => Promise<void>
 
     // Member Actions
     createMember: (name: string, habits: string[]) => void
@@ -107,7 +107,7 @@ export const useTribeStore = create<TribeState>()(
                 }
             },
 
-            syncTribe: async () => {
+            syncTribe: async (dateKey) => {
                 const { tribeUrl, localUserId, members } = get()
                 if (!tribeUrl || !localUserId || tribeUrl.includes('mock')) return
 
@@ -117,8 +117,11 @@ export const useTribeStore = create<TribeState>()(
                     const localMember = members[localUserId]
 
                     // Send our data to the sheet
-                    const today = getTodayKey()
-                    const dayLog = localMember.history[today] || [false, false, false, false, false]
+                    const targetDate = dateKey || getTodayKey()
+                    const dayLog = localMember.history[targetDate] || [false, false, false, false, false]
+
+                    // User Request: True (Done) -> 0, False (Missed) -> 1
+                    const sheetHabits = dayLog.map(done => done ? 0 : 1)
 
                     await fetch(tribeUrl, {
                         method: 'POST',
@@ -130,8 +133,8 @@ export const useTribeStore = create<TribeState>()(
                             // v2 Payload
                             userName: localMember.name,
                             userId: localUserId,
-                            date: today,
-                            habits: dayLog,
+                            date: targetDate,
+                            habits: sheetHabits,
                             habitNames: localMember.habits.map(h => h.text),
                             visitFund: localMember.visitFund
                         })
