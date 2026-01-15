@@ -12,7 +12,12 @@ export default function App() {
   if (!tribeUrl) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4 font-sans selection:bg-yellow-500/30">
-        <IntroScreen onJoin={(url) => connectTribe(url)} onCreate={() => { }} />
+        <IntroScreen
+          onJoin={(url) => connectTribe(url)}
+          onCreate={() => { }}
+          isLoading={useTribeStore(s => s.isLoading)}
+          error={useTribeStore(s => s.error)}
+        />
       </div>
     )
   }
