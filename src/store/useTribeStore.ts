@@ -2,12 +2,17 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getTodayKey } from '../lib/utils'
 
+export type UserSettings = {
+    dayEndOffset: number
+}
+
 export type TribeMember = {
     id: string
     name: string
     habits: { id: string, text: string }[]
     history: { [date: string]: boolean[] }
     visitFund: number
+    settings: UserSettings
 }
 
 interface TribeState {
@@ -16,6 +21,7 @@ interface TribeState {
     localUserId: string | null
     lastSynced: number
     isLoading: boolean
+    activeRequests: number
     error: string | null
 
     // Actions
@@ -23,7 +29,9 @@ interface TribeState {
     syncTribe: (dateKey?: string) => Promise<void>
 
     // Member Actions
-    createMember: (name: string, habits: string[]) => void
+    createMember: (name: string, habits: string[], dayEndOffset?: number) => void
+    updateMemberSettings: (settings: Partial<UserSettings>) => void
+    updateHabit: (index: number, text: string) => void
     toggleHabit: (date: string, index: number) => void
     calculatePenalties: () => void
     simulateHistory: () => void
@@ -41,14 +49,16 @@ const generateMockData = (url: string) => {
             name: 'Alice',
             habits: Array(5).fill(null).map((_, i) => ({ id: `${i}`, text: `Habit ${i + 1}` })),
             history: { [getTodayKey()]: [true, true, false, false, false] },
-            visitFund: 150
+            visitFund: 150,
+            settings: { dayEndOffset: 0 }
         },
         'member-2': {
             id: 'member-2',
             name: 'Bob',
             habits: Array(5).fill(null).map((_, i) => ({ id: `${i}`, text: `Habit ${i + 1}` })),
             history: { [getTodayKey()]: [false, false, false, false, false] },
-            visitFund: 300
+            visitFund: 300,
+            settings: { dayEndOffset: 0 }
         }
     }
 }
@@ -61,6 +71,7 @@ export const useTribeStore = create<TribeState>()(
             localUserId: null,
             lastSynced: 0,
             isLoading: false,
+            activeRequests: 0,
             error: null,
 
             connectTribe: async (url) => {
@@ -111,7 +122,10 @@ export const useTribeStore = create<TribeState>()(
                 const { tribeUrl, localUserId, members } = get()
                 if (!tribeUrl || !localUserId || tribeUrl.includes('mock')) return
 
-                set({ isLoading: true })
+                set(state => ({
+                    activeRequests: (state.activeRequests || 0) + 1,
+                    isLoading: true
+                }))
 
                 try {
                     const localMember = members[localUserId]
@@ -136,37 +150,94 @@ export const useTribeStore = create<TribeState>()(
                             date: targetDate,
                             habits: sheetHabits,
                             habitNames: localMember.habits.map(h => h.text),
-                            visitFund: localMember.visitFund
+                            visitFund: localMember.visitFund,
+                            settings: localMember.settings
                         })
                     })
 
-                    // Ideally we also GET here to refresh others...
-                    // const res = await fetch(tribeUrl)
-                    // const json = await res.json()
-                    // mergeMembers(json.data)
-
-                    set({ isLoading: false, lastSynced: Date.now() })
+                    set(state => {
+                        const newCount = Math.max(0, (state.activeRequests || 1) - 1)
+                        return {
+                            activeRequests: newCount,
+                            isLoading: newCount > 0,
+                            lastSynced: Date.now()
+                        }
+                    })
                     console.log("Tribe Synced")
                 } catch (e) {
                     console.error("Sync failed:", e)
-                    set({ isLoading: false })
+                    set(state => {
+                        const newCount = Math.max(0, (state.activeRequests || 1) - 1)
+                        return {
+                            activeRequests: newCount,
+                            isLoading: newCount > 0
+                        }
+                    })
                 }
             },
 
-            createMember: (name, habits) => {
+            createMember: (name, habits, dayEndOffset = 0) => {
                 const newId = name.toLowerCase().replace(/\s+/g, '-') + '-' + Math.random().toString(36).substr(2, 9)
                 const newMember: TribeMember = {
                     id: newId,
                     name,
                     habits: habits.map((h, i) => ({ id: `${i}`, text: h })),
                     history: {},
-                    visitFund: 0
+                    visitFund: 0,
+                    settings: { dayEndOffset }
                 }
 
                 set(state => ({
                     members: { ...state.members, [newId]: newMember },
                     localUserId: newId
                 }))
+
+                // Immediately sync to create the sheet
+                get().syncTribe()
+            },
+
+            updateMemberSettings: (settingsUpdates) => {
+                const { localUserId, members } = get()
+                if (!localUserId || !members[localUserId]) return
+
+                set(state => ({
+                    members: {
+                        ...state.members,
+                        [localUserId]: {
+                            ...state.members[localUserId],
+                            settings: {
+                                ...state.members[localUserId].settings,
+                                ...settingsUpdates
+                            }
+                        }
+                    }
+                }))
+
+                // Trigger sync to save settings if supported by backend later, 
+                // for now it's local first.
+                // get().syncTribe() 
+            },
+
+            updateHabit: (index, text) => {
+                const { localUserId, members } = get()
+                if (!localUserId || !members[localUserId]) return
+
+                const member = members[localUserId]
+                const newHabits = [...member.habits]
+                newHabits[index] = { ...newHabits[index], text }
+
+                set(state => ({
+                    members: {
+                        ...state.members,
+                        [localUserId]: {
+                            ...member,
+                            habits: newHabits
+                        }
+                    }
+                }))
+
+                // Trigger sync to update headers in sheet
+                get().syncTribe()
             },
 
             toggleHabit: (date, index) => {
@@ -191,8 +262,8 @@ export const useTribeStore = create<TribeState>()(
                     }
                 }))
 
-                // Trigger background sync
-                get().syncTribe()
+                // Trigger background sync for the specific date modified
+                get().syncTribe(date)
             },
 
             calculatePenalties: () => {
@@ -311,6 +382,12 @@ export const useTribeStore = create<TribeState>()(
         }),
         {
             name: 'tribe-storage',
+            partialize: (state) => ({
+                tribeUrl: state.tribeUrl,
+                members: state.members,
+                localUserId: state.localUserId,
+                lastSynced: state.lastSynced
+            })
         }
     )
 )

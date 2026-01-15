@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, PlusCircle, Plane, RefreshCw, LogOut, Wallet } from 'lucide-react'
+import { Check, PlusCircle, RefreshCw, Settings as SettingsIcon, LogOut } from 'lucide-react'
 import { useTribeStore } from './store/useTribeStore'
 import { TotemAvatar } from './components/TotemAvatar'
 import { IntroScreen } from './components/IntroScreen'
@@ -9,7 +9,7 @@ export default function App() {
   const { tribeUrl, connectTribe, localUserId } = useTribeStore()
   const isLoading = useTribeStore(s => s.isLoading)
   const error = useTribeStore(s => s.error)
-  
+
   // If no tribe, show intro
   if (!tribeUrl) {
     return (
@@ -187,12 +187,22 @@ function Onboarding({ onCancel }: { onCancel?: () => void }) {
   )
 }
 
-function Dashboard() {
-  const { getLocalMember, toggleHabit, syncTribe, members, isLoading } = useTribeStore()
-  const user = getLocalMember()
 
-  // Date State
-  const [selectedDate, setSelectedDate] = useState(getTodayKey())
+
+function Dashboard() {
+  const { getLocalMember, toggleHabit, syncTribe, updateMemberSettings, isLoading } = useTribeStore()
+  const user = getLocalMember()
+  const [showSettings, setShowSettings] = useState(false)
+
+  // Date State with Offset
+  const offset = user?.settings?.dayEndOffset || 0
+  const todayKey = getTodayKey(offset)
+  const [selectedDate, setSelectedDate] = useState(todayKey)
+
+  // Sync date if today changes (e.g. crossing midnight with offset)
+  if (selectedDate === todayKey && getTodayKey(offset) !== todayKey) {
+    setSelectedDate(getTodayKey(offset))
+  }
 
   if (!user) return null
 
@@ -200,7 +210,7 @@ function Dashboard() {
   // Use selected date instead of fixed today
   const dailyStatus = history[selectedDate] || [false, false, false, false, false]
 
-  const isToday = selectedDate === getTodayKey()
+  const isToday = selectedDate === todayKey
 
   const changeDate = (days: number) => {
     const d = new Date(selectedDate)
@@ -208,128 +218,169 @@ function Dashboard() {
     setSelectedDate(d.toISOString().split('T')[0])
   }
 
-  // Calculate Shared Fund
-  const totalFund = Object.values(members).reduce((acc, u) => acc + u.visitFund, 0)
-  const GOAL_AMOUNT = 8000
-  const GOAL_NAME = "Flight Ticket"
+  // Calculate User Mood
+  const doneCount = dailyStatus.filter(Boolean).length
+  const allDone = dailyStatus.every(Boolean)
+  const currentHour = new Date().getHours()
+  // Adjust "Morning" logic based on offset? 
+  // Let's keep "Morning" as absolute time < 12 for now, or relative to start of "User Day"?
+  // A simple heuristic: If we are in the last 4 hours of the "User Day", get hungry.
+  // User Day Ends at 24 + offset (e.g. 2AM is 26h).
+  // Current time: 23 (11PM), Offset 2. Effective Hour = 23 (if day started 00).
+  // This is getting complex. Let's stick to simple: If it's PM and habits low.
+  const isMorning = currentHour < 12
 
-  // Calculate Tribe Mood (Average of all members)
-  // Logic: Calculate mood for each member, then assist 'Tribe Mood' based on worst performing? or average?
-  // Let's go with: If ANYONE is hungry, Totem is hungry. If ALL are happy, Totem is Radiant.
-  const todayKey = getTodayKey()
-  const memberMoods = Object.values(members).map(m => {
-    const s = m.history[todayKey] || [false, false, false, false, false]
-    const doneCount = s.filter(Boolean).length
-    // logic reuse
-    const allDone = s.every(Boolean)
-    const isMorning = new Date().getHours() < 12
-    if (allDone) return 'happy'
-    if (!isMorning && doneCount < 2) return 'hungry'
-    return 'neutral'
-  })
+  let userMood: any = 'neutral'
+  if (allDone) userMood = 'happy'
+  else if (!isMorning && doneCount < 2) userMood = 'hungry'
 
-  let tribeMood: any = 'neutral'
-  if (memberMoods.every(m => m === 'happy')) tribeMood = 'happy'
-  else if (memberMoods.some(m => m === 'hungry')) tribeMood = 'hungry'
-
+  const streak = calculateStreak(user.history)
 
   return (
-    <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
-      <header className="flex justify-between items-center">
-        <div>
-          <h2 className="text-lg font-bold flex items-center gap-2 capitalize">
-            {user.name}
-            {calculateStreak(user.history) > 1 && (
-              <span className="text-xs bg-orange-500/10 text-orange-500 font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
-                🔥 {calculateStreak(user.history)}
-              </span>
-            )}
-            <span className="text-xs font-normal text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
-              {isLoading ? 'Syncing...' : 'Synced'}
-            </span>
-          </h2>
-          {/* Date Navigator */}
-          <div className="flex items-center gap-2 mt-1">
-            <button onClick={() => changeDate(-1)} className="p-1 hover:bg-secondary rounded text-muted-foreground">
-              <code className="text-xs">←</code>
-            </button>
-            <p className="text-muted-foreground text-sm font-medium">
-              {isToday ? 'Today' : new Date(selectedDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-            </p>
-            <button
-              onClick={() => changeDate(1)}
-              disabled={isToday}
-              className="p-1 hover:bg-secondary rounded text-muted-foreground disabled:opacity-30"
-            >
-              <code className="text-xs">→</code>
-            </button>
+    <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500 relative">
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border shadow-xl rounded-2xl w-full max-w-sm p-6 space-y-6 animate-in zoom-in-95">
+            <div className="space-y-2 text-center">
+              <h2 className="text-2xl font-bold">Settings</h2>
+              <p className="text-muted-foreground text-sm">Personalize your day</p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Day Ends At</label>
+                <select
+                  value={user.settings?.dayEndOffset || 0}
+                  onChange={(e) => updateMemberSettings({ dayEndOffset: Number(e.target.value) })}
+                  className="flex h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value={0}>Midnight (12:00 AM)</option>
+                  <option value={1}>1:00 AM</option>
+                  <option value={2}>2:00 AM</option>
+                  <option value={3}>3:00 AM</option>
+                  <option value={4}>4:00 AM</option>
+                  <option value={5}>5:00 AM</option>
+                  <option value={6}>6:00 AM</option>
+                  <option value={7}>7:00 AM</option>
+                  <option value={8}>8:00 AM</option>
+                </select>
+                <p className="text-xs text-muted-foreground">Tasks reset after this time.</p>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <label className="text-sm font-medium">My Habits</label>
+                {user.habits.map((habit, index) => (
+                  <div key={habit.id} className="flex gap-2">
+                    <input
+                      value={habit.text}
+                      onChange={(e) => useTribeStore.getState().updateHabit(index, e.target.value)}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      placeholder={`Habit ${index + 1}`}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowSettings(false)}
+                className="flex-1 bg-primary text-primary-foreground h-12 rounded-xl font-bold hover:opacity-90"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-red-950/30 text-red-400 px-3 py-1 rounded-full border border-red-900/50">
-            <Wallet className="w-4 h-4" />
-            <span className="font-mono font-bold">₹{user.visitFund}</span>
+      )}
+
+      {/* Header with Date Nav */}
+      <header className="flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <button onClick={() => changeDate(-1)} className="p-2 hover:bg-secondary rounded-full text-muted-foreground transition-colors">
+            <code className="text-lg">←</code>
+          </button>
+          <div className="text-center">
+            <p className="font-bold text-lg leading-none">
+              {isToday ? 'Today' : new Date(selectedDate).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })}
+            </p>
+            {!isToday && (
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mt-0.5">
+                {new Date(selectedDate).toLocaleDateString(undefined, { month: 'long' })}
+              </p>
+            )}
           </div>
           <button
-            onClick={() => useTribeStore.setState({ localUserId: null })}
-            className="bg-secondary text-secondary-foreground px-3 py-1 rounded-full text-sm font-medium hover:bg-secondary/80 transition-colors flex items-center gap-2"
+            onClick={() => changeDate(1)}
+            disabled={isToday}
+            className="p-2 hover:bg-secondary rounded-full text-muted-foreground disabled:opacity-30 transition-colors"
           >
-            <LogOut className="w-4 h-4" />
+            <code className="text-lg">→</code>
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowSettings(true)}
+            className="text-muted-foreground hover:text-foreground p-2 rounded-full hover:bg-secondary transition-colors"
+          >
+            <SettingsIcon className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => useTribeStore.setState({ localUserId: null })}
+            className="text-muted-foreground hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-colors"
+          >
+            <LogOut className="w-5 h-5" />
           </button>
         </div>
       </header>
 
-      {/* Shared Fund Goal Card */}
-      <div className="bg-card border rounded-2xl p-5 space-y-3 relative overflow-hidden group">
-        {/* Background pattern */}
-        <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-          <Plane className="w-24 h-24 rotate-12" />
-        </div>
+      {/* Hero Status Card */}
+      <div className="bg-card border rounded-3xl p-6 relative overflow-hidden ring-1 ring-border/50 shadow-sm">
+        <div className="flex items-center gap-5 relative z-10">
+          {/* Avatar */}
+          <div className="shrink-0 relative group cursor-help">
+            <TotemAvatar mood={userMood} level={Math.max(1, Math.floor(streak / 5))} size="lg" />
+            {userMood === 'happy' && (
+              <div className="absolute -bottom-1 -right-1 bg-yellow-400 text-yellow-950 text-[10px] font-black px-1.5 py-0.5 rounded-full border border-yellow-200 shadow-sm">
+                MAX
+              </div>
+            )}
+          </div>
 
-        <div className="flex justify-between items-end relative z-10">
-          <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Visit Fund Goal</p>
-            <div className="flex items-center gap-2">
-              <Plane className="w-5 h-5 text-sky-400" />
-              <h3 className="font-bold text-lg">{GOAL_NAME}</h3>
+          {/* Stats */}
+          <div className="flex-1 min-w-0">
+            <div className="mb-3">
+              <h2 className="text-2xl font-black tracking-tight truncate">{user.name}</h2>
+              <p className="text-muted-foreground font-medium text-xs flex items-center gap-1.5 uppercase tracking-wider">
+                {userMood === 'happy' ? 'Radiant' : userMood === 'hungry' ? 'Hungry' : 'Chilling'}
+                <span className="w-1 h-1 rounded-full bg-muted-foreground/30" />
+                {isLoading ? <span className="animate-pulse text-primary">Syncing...</span> : 'Synced'}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="bg-orange-500/5 text-orange-600 px-3 py-1.5 rounded-xl border border-orange-500/10 flex flex-col leading-none flex-1">
+                <span className="text-[10px] uppercase font-bold text-orange-600/50 mb-1">Streak</span>
+                <span className="font-black text-xl">🔥 {streak}</span>
+              </div>
+              <div className="bg-red-500/5 text-red-600 px-3 py-1.5 rounded-xl border border-red-500/10 flex flex-col leading-none flex-1">
+                <span className="text-[10px] uppercase font-bold text-red-600/50 mb-1">Fund</span>
+                <span className="font-black text-xl">₹{user.visitFund}</span>
+              </div>
             </div>
           </div>
-          <div className="text-right">
-            <span className="text-2xl font-black tracking-tighter">₹{totalFund}</span>
-            <span className="text-sm text-muted-foreground font-medium"> / ₹{GOAL_AMOUNT}</span>
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="h-3 w-full bg-secondary/50 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-sky-400 to-indigo-500 transition-all duration-1000 ease-out"
-            style={{ width: `${Math.min((totalFund / GOAL_AMOUNT) * 100, 100)}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Tribe Mood Indicator */}
-      <div className="flex items-center gap-3 bg-secondary/30 p-3 rounded-xl border border-secondary/50">
-        <div className="relative">
-          <TotemAvatar mood={tribeMood} level={2} size="sm" />
-          <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-background animate-pulse" />
-        </div>
-        <div className="flex-1">
-          <p className="text-sm font-medium">Tribe Vibe</p>
-          <p className="text-xs text-muted-foreground uppercase tracking-wider">
-            {tribeMood === 'happy' ? 'Radiant' : tribeMood === 'hungry' ? 'Hungry' : 'Chilling'}
-          </p>
         </div>
       </div>
 
       {/* Habits List */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-bold text-xl">Your Rituals</h3>
-          <button onClick={() => syncTribe(selectedDate)} disabled={isLoading} className="text-xs bg-secondary hover:bg-secondary/80 px-3 py-1.5 rounded-full transition-colors font-medium flex items-center gap-1.5">
+        <div className="flex items-center justify-between px-1">
+          <h3 className="font-bold text-lg text-muted-foreground">Daily Rituals</h3>
+          <button onClick={() => syncTribe(selectedDate)} disabled={isLoading} className="text-xs bg-secondary/50 hover:bg-secondary px-3 py-1.5 rounded-full transition-colors flex items-center gap-1.5 font-medium">
             <RefreshCw className={cn("w-3.5 h-3.5", isLoading && "animate-spin")} />
-            {isLoading ? 'Syncing...' : 'Sync'}
+            Sync
           </button>
         </div>
 
@@ -339,11 +390,9 @@ function Dashboard() {
               key={habit.id}
               onClick={() => {
                 toggleHabit(selectedDate, index)
-                // OPTIONAL: Auto-sync on change (debounce ideally, but direct for now)
-                // setTimeout(() => syncTribe(selectedDate), 500)
               }}
               className={cn(
-                "relative group overflow-hidden w-full p-4 rounded-xl text-left border transition-all duration-300",
+                "relative group overflow-hidden w-full p-4 rounded-2xl text-left border transition-all duration-300",
                 dailyStatus[index]
                   ? "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]"
                   : "bg-card hover:bg-secondary/50 border-border"

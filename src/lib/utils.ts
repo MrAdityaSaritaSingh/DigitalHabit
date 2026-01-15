@@ -5,8 +5,10 @@ export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs))
 }
 
-export function getTodayKey() {
-    return new Date().toISOString().split('T')[0]
+export function getTodayKey(hourOffset: number = 0) {
+    const d = new Date()
+    d.setHours(d.getHours() - hourOffset)
+    return d.toISOString().split('T')[0]
 }
 
 export function calculateStreak(history: { [date: string]: boolean[] }): number {
