@@ -95,6 +95,7 @@ export function IntroScreen({ onJoin, isLoading, error }: IntroScreenProps) {
                                 <button
                                     onClick={() => onJoin(token)}
                                     disabled={!token.startsWith('http') || isLoading}
+                                    type="button"
                                     className="flex-1 bg-primary text-primary-foreground h-12 rounded-lg font-bold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {isLoading ? 'Connecting...' : 'Connect'}
@@ -172,6 +173,7 @@ export function IntroScreen({ onJoin, isLoading, error }: IntroScreenProps) {
                                 <button
                                     onClick={() => onJoin(token)}
                                     disabled={!token.startsWith('http') || isLoading}
+                                    type="button"
                                     className="flex-1 bg-primary text-primary-foreground h-12 rounded-lg font-bold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {isLoading ? 'Verifying...' : 'Create Tribe'}

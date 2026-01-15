@@ -7,7 +7,9 @@ import { getTodayKey, cn, calculateStreak } from './lib/utils'
 
 export default function App() {
   const { tribeUrl, connectTribe, localUserId } = useTribeStore()
-
+  const isLoading = useTribeStore(s => s.isLoading)
+  const error = useTribeStore(s => s.error)
+  
   // If no tribe, show intro
   if (!tribeUrl) {
     return (
@@ -15,8 +17,8 @@ export default function App() {
         <IntroScreen
           onJoin={(url) => connectTribe(url)}
           onCreate={() => { }}
-          isLoading={useTribeStore(s => s.isLoading)}
-          error={useTribeStore(s => s.error)}
+          isLoading={isLoading}
+          error={error}
         />
       </div>
     )

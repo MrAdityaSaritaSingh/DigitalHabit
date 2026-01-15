@@ -120,8 +120,8 @@ export const useTribeStore = create<TribeState>()(
                     const targetDate = dateKey || getTodayKey()
                     const dayLog = localMember.history[targetDate] || [false, false, false, false, false]
 
-                    // User Request: True (Done) -> 0, False (Missed) -> 1
-                    const sheetHabits = dayLog.map(done => done ? 0 : 1)
+                    // User Request Update: Done -> 1, Not Done -> 0
+                    const sheetHabits = dayLog.map(done => done ? 1 : 0)
 
                     await fetch(tribeUrl, {
                         method: 'POST',
