@@ -4,6 +4,7 @@ import { getTodayKey } from '../lib/utils'
 
 export type UserSettings = {
     dayEndOffset: number
+    timezone?: string
 }
 
 export type TribeMember = {
@@ -35,6 +36,8 @@ interface TribeState {
     toggleHabit: (date: string, index: number) => void
     calculatePenalties: () => void
     simulateHistory: () => void
+    initializeDay: (date: string) => void
+    deleteMember: (memberId: string) => Promise<void>
     getLocalMember: () => TribeMember | null
 }
 
@@ -97,7 +100,17 @@ export const useTribeStore = create<TribeState>()(
 
                     if (json.status === 'success') {
                         // v2 API returns members map directly!
-                        const parsedMembers = json.data || {}
+                        const parsedMembers: Record<string, TribeMember> = json.data || {}
+
+                        // Backward Compatibility: Ensure defaults
+                        const defaults = {
+                            dayEndOffset: 0,
+                            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                        }
+
+                        Object.values(parsedMembers).forEach(m => {
+                            m.settings = { ...defaults, ...(m.settings || {}) }
+                        })
 
                         console.log("Tribe Connected (v2):", Object.keys(parsedMembers).length, "members")
 
@@ -131,7 +144,9 @@ export const useTribeStore = create<TribeState>()(
                     const localMember = members[localUserId]
 
                     // Send our data to the sheet
-                    const targetDate = dateKey || getTodayKey()
+                    const offset = localMember.settings.dayEndOffset || 0
+                    const timezone = localMember.settings.timezone
+                    const targetDate = dateKey || getTodayKey(offset, timezone)
                     const dayLog = localMember.history[targetDate] || [false, false, false, false, false]
 
                     // User Request Update: Done -> 1, Not Done -> 0
@@ -184,7 +199,10 @@ export const useTribeStore = create<TribeState>()(
                     habits: habits.map((h, i) => ({ id: `${i}`, text: h })),
                     history: {},
                     visitFund: 0,
-                    settings: { dayEndOffset }
+                    settings: {
+                        dayEndOffset,
+                        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                    }
                 }
 
                 set(state => ({
@@ -271,7 +289,9 @@ export const useTribeStore = create<TribeState>()(
                 if (!localUserId || !members[localUserId]) return
 
                 const member = members[localUserId]
-                const today = getTodayKey()
+                const offset = member.settings.dayEndOffset || 0
+                const timezone = member.settings.timezone
+                const today = getTodayKey(offset, timezone)
                 const knownDays = Object.keys(member.history).sort()
 
                 let penalty = 0
@@ -372,6 +392,69 @@ export const useTribeStore = create<TribeState>()(
 
                 // Recalculate penalties fully locally
                 get().calculatePenalties()
+            },
+
+            initializeDay: (date) => {
+                const { localUserId, members } = get()
+                if (!localUserId || !members[localUserId]) return
+
+                const member = members[localUserId]
+
+                // If already initialized, do nothing
+                if (member.history[date]) return
+
+                set(state => ({
+                    members: {
+                        ...state.members,
+                        [localUserId]: {
+                            ...member,
+                            history: {
+                                ...member.history,
+                                [date]: [false, false, false, false, false]
+                            }
+                        }
+                    }
+                }))
+
+                // Sync to push the 0s to sheet
+                get().syncTribe(date)
+            },
+
+            deleteMember: async (memberId) => {
+                const { tribeUrl, members } = get()
+                const member = members[memberId]
+                if (!tribeUrl || !member) return
+
+                set({ isLoading: true })
+
+                // 1. Send Delete Request
+                try {
+                    await fetch(tribeUrl, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({
+                            action: 'DELETE',
+                            userId: memberId,
+                            userName: member.name, // Needed to find sheet
+                        })
+                    })
+                    console.log("Member deleted from Tribe")
+                } catch (e) {
+                    console.error("Delete failed:", e)
+                    // We might still want to delete locally? Let's assume yes.
+                }
+
+                // 2. Delete Locally
+                const newMembers = { ...members }
+                delete newMembers[memberId]
+
+                set(state => ({
+                    members: newMembers,
+                    isLoading: false,
+                    // If we deleted ourselves, logout
+                    localUserId: state.localUserId === memberId ? null : state.localUserId
+                }))
             },
 
             getLocalMember: () => {

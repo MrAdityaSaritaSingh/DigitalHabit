@@ -110,7 +110,30 @@ function doPost(e) {
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
+    // --- HANDLE ACTIONS ---
+    const action = parsing.action || 'UPDATE';
+
+    if (action === 'DELETE') {
+       // 1. Delete from _Members
+       let memSheet = ss.getSheetByName(MEMBERS_SHEET);
+       if (memSheet) {
+          const data = memSheet.getDataRange().getValues();
+          for (let i = 1; i < data.length; i++) {
+             if (String(data[i][0]) === String(userId)) {
+                 memSheet.deleteRow(i + 1);
+                 break;
+             }
+          }
+       }
+       // 2. Delete User Sheet
+       const userSheet = ss.getSheetByName(userName);
+       if (userSheet) ss.deleteSheet(userSheet);
+       
+       return response({ status: 'success', action: 'deleted' });
+    }
+
     // --- A. UPDATE DAILY LOG (User Sheet) ---
+    // (Default Action)
     let sheet = ss.getSheetByName(userName);
     if (!sheet) {
        sheet = ss.insertSheet(userName);

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Check, PlusCircle, RefreshCw, Settings as SettingsIcon, LogOut } from 'lucide-react'
 import { useTribeStore } from './store/useTribeStore'
 import { TotemAvatar } from './components/TotemAvatar'
@@ -49,7 +49,6 @@ function UserSelect() {
   }
 
   const [isAdding, setIsAdding] = useState(false)
-  const today = getTodayKey()
 
   if (isAdding) return <Onboarding onCancel={() => setIsAdding(false)} />
 
@@ -63,7 +62,10 @@ function UserSelect() {
       <div className="grid gap-3">
         {Object.values(members).map(member => {
           // Calc mini mood
-          const todayStatus = member.history[today] || [false, false, false, false, false]
+          const memberOffset = member.settings.dayEndOffset || 0
+          const memberTimezone = member.settings.timezone
+          const memberToday = getTodayKey(memberOffset, memberTimezone)
+          const todayStatus = member.history[memberToday] || [false, false, false, false, false]
           const allDone = todayStatus.every(Boolean)
           const isMorning = new Date().getHours() < 12
           let mood: any = 'neutral'
@@ -190,19 +192,37 @@ function Onboarding({ onCancel }: { onCancel?: () => void }) {
 
 
 function Dashboard() {
-  const { getLocalMember, toggleHabit, syncTribe, updateMemberSettings, isLoading } = useTribeStore()
+  const { getLocalMember, toggleHabit, syncTribe, updateMemberSettings, initializeDay, deleteMember, isLoading } = useTribeStore()
   const user = getLocalMember()
   const [showSettings, setShowSettings] = useState(false)
 
-  // Date State with Offset
+  // Precompute timezones
+  const timezones = useMemo(() => {
+    try {
+      return Intl.supportedValuesOf('timeZone')
+    } catch (e) {
+      return ["UTC"]
+    }
+  }, [])
+
+  // Date State with Offset & Timezone
   const offset = user?.settings?.dayEndOffset || 0
-  const todayKey = getTodayKey(offset)
+  const timezone = user?.settings?.timezone
+  const todayKey = getTodayKey(offset, timezone)
   const [selectedDate, setSelectedDate] = useState(todayKey)
 
   // Sync date if today changes (e.g. crossing midnight with offset)
-  if (selectedDate === todayKey && getTodayKey(offset) !== todayKey) {
-    setSelectedDate(getTodayKey(offset))
+  if (selectedDate === todayKey && getTodayKey(offset, timezone) !== todayKey) {
+    setSelectedDate(getTodayKey(offset, timezone))
   }
+
+  // Effect: Auto-initialize day if missing
+  // We check against 'todayKey' because we want to ensure the *current* real day is initialized
+  useEffect(() => {
+    if (user && !user.history[todayKey]) {
+      initializeDay(todayKey)
+    }
+  }, [todayKey, user?.history, initializeDay])
 
   if (!user) return null
 
@@ -268,6 +288,19 @@ function Dashboard() {
                 <p className="text-xs text-muted-foreground">Tasks reset after this time.</p>
               </div>
 
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Timezone</label>
+                <select
+                  value={user.settings?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone}
+                  onChange={(e) => updateMemberSettings({ timezone: e.target.value })}
+                  className="flex h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {timezones.map(tz => (
+                    <option key={tz} value={tz}>{tz}</option>
+                  ))}
+                </select>
+              </div>
+
               <div className="space-y-3 pt-2">
                 <label className="text-sm font-medium">My Habits</label>
                 {user.habits.map((habit, index) => (
@@ -285,6 +318,16 @@ function Dashboard() {
 
             <div className="flex gap-2">
               <button
+                onClick={() => {
+                  if (confirm("Are you sure? This will delete your profile and history permanently.")) {
+                    deleteMember(user.id)
+                  }
+                }}
+                className="flex-1 bg-red-100 text-red-600 h-12 rounded-xl font-bold hover:bg-red-200"
+              >
+                Delete Profile
+              </button>
+              <button
                 onClick={() => setShowSettings(false)}
                 className="flex-1 bg-primary text-primary-foreground h-12 rounded-xl font-bold hover:opacity-90"
               >
@@ -293,7 +336,8 @@ function Dashboard() {
             </div>
           </div>
         </div>
-      )}
+      )
+      }
 
       {/* Header with Date Nav */}
       <header className="flex justify-between items-center">
@@ -416,6 +460,6 @@ function Dashboard() {
           ))}
         </div>
       </div>
-    </div>
+    </div >
   )
 }

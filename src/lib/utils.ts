@@ -5,9 +5,16 @@ export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs))
 }
 
-export function getTodayKey(hourOffset: number = 0) {
+export function getTodayKey(hourOffset: number = 0, timezone?: string) {
     const d = new Date()
     d.setHours(d.getHours() - hourOffset)
+    if (timezone) {
+        try {
+            return d.toLocaleDateString("en-CA", { timeZone: timezone })
+        } catch (e) {
+            console.error("Invalid timezone", timezone)
+        }
+    }
     return d.toISOString().split('T')[0]
 }
 
