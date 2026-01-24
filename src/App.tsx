@@ -56,7 +56,7 @@ function UserSelect() {
   return (
     <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
       <div className="text-center space-y-2">
-        <h1 className="text-4xl font-bold tracking-tighter">Digital Totem</h1>
+        <h1 className="text-4xl font-bold tracking-tighter">Habitude</h1>
         <p className="text-muted-foreground">Who are you in this tribe?</p>
       </div>
 

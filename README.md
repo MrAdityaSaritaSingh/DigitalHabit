@@ -1,11 +1,11 @@
-# Digital Totem 🗿
+# Habitude 🗿
 
 > **"If you miss a habit, the Totem gets hungry. If it gets hungry, you pay."**
 
-**Digital Totem** is a gamified, shared habit tracker designed for accountability partners (couples or small groups) who want to build rituals together. It replaces boring spreadsheet trackers with a living, breathing digital avatar that reflects your consistency.
+**Habitude** is a gamified, shared habit tracker designed for accountability partners (couples or small groups) who want to build rituals together. It replaces boring spreadsheet trackers with a living, breathing digital avatar that reflects your consistency.
 
 ## 🌟 The Vision
-Traditional habit trackers are lonely. Texts are easy to ignore. The **Digital Totem** sits on your home screen as a shared symbol of your commitment.
+Traditional habit trackers are lonely. Texts are easy to ignore. **Habitude** sits on your home screen as a shared symbol of your commitment.
 - **Do your 5 rituals**: The Totem glows and becomes "Radiant".
 - **Miss a ritual**: The Totem shivers, gets "Hungry", and you owe a fine to the "Visit Fund".
 
