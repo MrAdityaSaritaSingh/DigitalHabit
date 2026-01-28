@@ -192,8 +192,11 @@ function Onboarding({ onCancel }: { onCancel?: () => void }) {
 
 
 function Dashboard() {
-  const { getLocalMember, toggleHabit, syncTribe, updateMemberSettings, initializeDay, deleteMember, isLoading } = useTribeStore()
-  const user = getLocalMember()
+  const { toggleHabit, syncTribe, updateMemberSettings, initializeDay, deleteMember, isLoading } = useTribeStore()
+
+  // Select user via selector to ensure reactivity
+  const user = useTribeStore(s => s.localUserId ? s.members[s.localUserId] : null)
+
   const [showSettings, setShowSettings] = useState(false)
 
   // Precompute timezones
@@ -209,7 +212,19 @@ function Dashboard() {
   const offset = user?.settings?.dayEndOffset || 0
   const timezone = user?.settings?.timezone
   const todayKey = getTodayKey(offset, timezone)
+
   const [selectedDate, setSelectedDate] = useState(todayKey)
+  const [isEditing, setIsEditing] = useState(false)
+
+  // Memoize effective habits to avoid unstable references
+  const effectiveHabits = useMemo(() => {
+    if (!user) return []
+    const overrides = user.overrides?.[selectedDate] || {}
+    return user.habits.map((h, i) => ({
+      ...h,
+      text: overrides[i] !== undefined ? overrides[i] : h.text
+    }))
+  }, [user, selectedDate])
 
   // Sync date if today changes (e.g. crossing midnight with offset)
   if (selectedDate === todayKey && getTodayKey(offset, timezone) !== todayKey) {
@@ -385,8 +400,8 @@ function Dashboard() {
         <div className="flex items-center gap-5 relative z-10">
           {/* Avatar */}
           <div className="shrink-0 relative group cursor-help">
-            <TotemAvatar mood={userMood} level={Math.max(1, Math.floor(streak / 5))} size="lg" />
-            {userMood === 'happy' && (
+            <TotemAvatar mood={userMood} level={doneCount} size="lg" />
+            {doneCount === 5 && (
               <div className="absolute -bottom-1 -right-1 bg-yellow-400 text-yellow-950 text-[10px] font-black px-1.5 py-0.5 rounded-full border border-yellow-200 shadow-sm">
                 MAX
               </div>
@@ -419,47 +434,79 @@ function Dashboard() {
       </div>
 
       {/* Habits List */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between px-1">
-          <h3 className="font-bold text-lg text-muted-foreground">Daily Rituals</h3>
-          <button onClick={() => syncTribe(selectedDate)} disabled={isLoading} className="text-xs bg-secondary/50 hover:bg-secondary px-3 py-1.5 rounded-full transition-colors flex items-center gap-1.5 font-medium">
-            <RefreshCw className={cn("w-3.5 h-3.5", isLoading && "animate-spin")} />
-            Sync
-          </button>
-        </div>
+      <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500 relative">
+        {/* ... Settings Modal ... */}
 
-        <div className="grid gap-3">
-          {habits.map((habit, index) => (
-            <button
-              key={habit.id}
-              onClick={() => {
-                toggleHabit(selectedDate, index)
-              }}
-              className={cn(
-                "relative group overflow-hidden w-full p-4 rounded-2xl text-left border transition-all duration-300",
-                dailyStatus[index]
-                  ? "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]"
-                  : "bg-card hover:bg-secondary/50 border-border"
-              )}
-            >
-              <div className="flex items-center justify-between relative z-10">
-                <span className={cn("font-medium text-lg", dailyStatus[index] && "font-bold")}>{habit.text}</span>
-                <div className={cn(
-                  "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors",
-                  dailyStatus[index] ? "border-primary-foreground bg-primary-foreground/20" : "border-muted-foreground/30"
-                )}>
-                  {dailyStatus[index] && <Check className="w-4 h-4" />}
-                </div>
-              </div>
+        {/* ... Header ... */}
 
-              {/* Confetti effect background */}
-              {dailyStatus[index] && (
-                <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent pointer-events-none" />
-              )}
+        {/* ... Hero Status Card ... */}
+
+        {/* Habits List */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-lg text-muted-foreground">
+                {isEditing ? `Editing for ${isToday ? 'Today' : new Date(selectedDate).toLocaleDateString()}` : 'Daily Rituals'}
+              </h3>
+              <button
+                onClick={() => setIsEditing(!isEditing)}
+                className={cn("p-1.5 rounded-full transition-colors", isEditing ? "bg-primary text-primary-foreground" : "hover:bg-secondary text-muted-foreground")}
+              >
+                <RefreshCw className={cn("w-3.5 h-3.5", isEditing && "rotate-180")} />
+              </button>
+            </div>
+            <button onClick={() => syncTribe(selectedDate)} disabled={isLoading} className="text-xs bg-secondary/50 hover:bg-secondary px-3 py-1.5 rounded-full transition-colors flex items-center gap-1.5 font-medium">
+              <RefreshCw className={cn("w-3.5 h-3.5", isLoading && "animate-spin")} />
+              Sync
             </button>
-          ))}
+          </div>
+
+          <div className="grid gap-3">
+            {effectiveHabits.map((habit, index) => (
+              isEditing ? (
+                <div key={habit.id} className="relative group overflow-hidden w-full p-3 rounded-2xl text-left border bg-card/50 ring-2 ring-primary/20 animate-in fade-in">
+                  <input
+                    value={habit.text}
+                    onChange={(e) => useTribeStore.getState().updateHabitForDay(selectedDate, index, e.target.value)}
+                    className="w-full bg-transparent border-none text-lg font-medium focus:ring-0 placeholder:text-muted-foreground/50"
+                    placeholder="Override habit for today..."
+                    autoFocus={index === 0}
+                  />
+                </div>
+              ) : (
+                <button
+                  key={habit.id}
+                  onClick={() => {
+                    toggleHabit(selectedDate, index)
+                  }}
+                  /* ... existing button formatting ... */
+                  className={cn(
+                    "relative group overflow-hidden w-full p-4 rounded-2xl text-left border transition-all duration-300",
+                    dailyStatus[index]
+                      ? "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]"
+                      : "bg-card hover:bg-secondary/50 border-border"
+                  )}
+                >
+                  <div className="flex items-center justify-between relative z-10">
+                    <span className={cn("font-medium text-lg", dailyStatus[index] && "font-bold")}>{habit.text}</span>
+                    <div className={cn(
+                      "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors",
+                      dailyStatus[index] ? "border-primary-foreground bg-primary-foreground/20" : "border-muted-foreground/30"
+                    )}>
+                      {dailyStatus[index] && <Check className="w-4 h-4" />}
+                    </div>
+                  </div>
+
+                  {/* Confetti effect background */}
+                  {dailyStatus[index] && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent pointer-events-none" />
+                  )}
+                </button>
+              )))}
+          </div>
         </div>
-      </div>
-    </div >
+      </div >
+    </div>
   )
 }
+

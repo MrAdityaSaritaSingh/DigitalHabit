@@ -11,6 +11,8 @@ export type TribeMember = {
     id: string
     name: string
     habits: { id: string, text: string }[]
+    // Map of Date "YYYY-MM-DD" -> Map of Index (0-4) -> New Text
+    overrides?: Record<string, Record<number, string>>
     history: { [date: string]: boolean[] }
     visitFund: number
     settings: UserSettings
@@ -33,12 +35,14 @@ interface TribeState {
     createMember: (name: string, habits: string[], dayEndOffset?: number) => void
     updateMemberSettings: (settings: Partial<UserSettings>) => void
     updateHabit: (index: number, text: string) => void
+    updateHabitForDay: (date: string, index: number, text: string) => void
     toggleHabit: (date: string, index: number) => void
     calculatePenalties: () => void
     simulateHistory: () => void
     initializeDay: (date: string) => void
     deleteMember: (memberId: string) => Promise<void>
     getLocalMember: () => TribeMember | null
+    getHabitsForDate: (date: string) => { id: string, text: string }[]
 }
 
 // Mock Data Generator
@@ -120,6 +124,9 @@ export const useTribeStore = create<TribeState>()(
                             isLoading: false,
                             lastSynced: Date.now()
                         })
+
+
+
                         return true
                     } else {
                         throw new Error("Invalid response from Tribe")
@@ -253,9 +260,48 @@ export const useTribeStore = create<TribeState>()(
                         }
                     }
                 }))
-
-                // Trigger sync to update headers in sheet
                 get().syncTribe()
+            },
+
+            updateHabitForDay: (date, index, text) => {
+                const { localUserId, members } = get()
+                if (!localUserId || !members[localUserId]) return
+
+                const member = members[localUserId]
+                // Initialize overrides if missing
+                const overrides = member.overrides || {}
+                const dayOverrides = overrides[date] || {}
+
+                // If text matches default, strictly we could remove the override, but let's just set it for now.
+                set(state => ({
+                    members: {
+                        ...state.members,
+                        [localUserId]: {
+                            ...member,
+                            overrides: {
+                                ...overrides,
+                                [date]: {
+                                    ...dayOverrides,
+                                    [index]: text
+                                }
+                            }
+                        }
+                    }
+                }))
+                // We might want to sync immediately or just wait for toggle/sync button
+            },
+
+            getHabitsForDate: (date) => {
+                const { localUserId, members } = get()
+                if (!localUserId || !members[localUserId]) return []
+
+                const member = members[localUserId]
+                const overrides = member.overrides?.[date] || {}
+
+                return member.habits.map((h, i) => ({
+                    ...h,
+                    text: overrides[i] !== undefined ? overrides[i] : h.text
+                }))
             },
 
             toggleHabit: (date, index) => {
@@ -297,21 +343,16 @@ export const useTribeStore = create<TribeState>()(
                 let penalty = 0
 
                 // Calculate penalty for all past days
+                // Formula: (5 - CompletedTasks) * 10
                 knownDays.forEach(day => {
                     if (day < today) {
                         const habits = member.history[day]
-                        // If day exists in history, check if all done
-                        // Rule: Miss *any* habit = Penalty? Or Miss *all*?
-                        // User orig request: "₹50 fine is added... for each missed activity" 
-                        // actually usually means per day if not 100%, OR per habit.
-                        // Let's stick to: If Daily Goal (5/5) not met -> Penalty.
-                        // Actually "each missed activity" implies ₹50 * 5 potentially?
-                        // Let's look at previous logic: "Missed Any -> Penalty += 50". (Flat 50 per bad day).
-                        // Let's stick to Flat 50 per bad day for now to be safe.
+                        const completedCount = habits.filter(Boolean).length
 
-                        const allDone = habits.every(Boolean)
-                        if (!allDone) {
-                            penalty += 50
+                        // Add 10 per missed habit (Max 50)
+                        const dailyPenalty = (5 - completedCount) * 10
+                        if (dailyPenalty > 0) {
+                            penalty += dailyPenalty
                         }
                     }
                 })
@@ -418,6 +459,8 @@ export const useTribeStore = create<TribeState>()(
 
                 // Sync to push the 0s to sheet
                 get().syncTribe(date)
+
+
             },
 
             deleteMember: async (memberId) => {

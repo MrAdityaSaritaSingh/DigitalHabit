@@ -9,16 +9,31 @@ interface TotemAvatarProps {
     size?: 'sm' | 'md' | 'lg'
 }
 
-export function TotemAvatar({ mood, size = 'lg' }: TotemAvatarProps) {
-    // Visual config based on mood
-    const config = {
-        happy: { color: 'bg-yellow-400', shadow: 'shadow-yellow-400/50', scale: 1.1, pulse: 2 },
-        neutral: { color: 'bg-blue-400', shadow: 'shadow-blue-400/50', scale: 1, pulse: 4 },
-        hungry: { color: 'bg-orange-500', shadow: 'shadow-orange-500/50', scale: 0.9, pulse: 0.5 },
-        sick: { color: 'bg-gray-400', shadow: 'shadow-gray-400/50', scale: 0.8, pulse: 0 },
+export function TotemAvatar({ mood, level, size = 'lg' }: TotemAvatarProps) {
+    // 0-5 Mapping for Gradient (Gloomy Grey -> Bright Golden)
+    // 0: Gloomy Grey
+    // 1: Dark Orange-Grey
+    // 2: Neutral Blue
+    // 3: Optimistic Yellow-Green
+    // 4: Winding Up Yellow
+    // 5: Radiant Golden
+
+    const getColor = (lvl: number) => {
+        if (lvl <= 0) return { bg: 'bg-zinc-600', shadow: 'shadow-zinc-900/50', icon: 'text-zinc-400' }
+        if (lvl === 1) return { bg: 'bg-orange-800', shadow: 'shadow-orange-900/50', icon: 'text-orange-400' }
+        if (lvl === 2) return { bg: 'bg-blue-500', shadow: 'shadow-blue-900/50', icon: 'text-blue-200' }
+        if (lvl === 3) return { bg: 'bg-yellow-500', shadow: 'shadow-yellow-600/50', icon: 'text-yellow-100' }
+        if (lvl === 4) return { bg: 'bg-amber-400', shadow: 'shadow-amber-500/50', icon: 'text-amber-50' }
+        return { bg: 'bg-yellow-300', shadow: 'shadow-yellow-400/80', icon: 'text-white' }
     }
 
-    const current = config[mood]
+    const getPulse = (lvl: number) => {
+        if (lvl <= 0) return 0 // Shiver instead
+        if (lvl === 5) return 2 // Intense pulse
+        return 4 // Gentle breath
+    }
+
+    const current = getColor(level)
 
     // Size config
     const sizes = {
@@ -33,43 +48,52 @@ export function TotemAvatar({ mood, size = 'lg' }: TotemAvatarProps) {
             <div className="relative">
                 {/* Glow effect */}
                 <motion.div
-                    animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.8, 0.5] }}
-                    transition={{ duration: current.pulse, repeat: Infinity, ease: "easeInOut" }}
-                    className={`absolute inset-0 rounded-full ${current.color} opacity-50 ${s.glow}`}
+                    animate={{ scale: [1, 1.2, 1], opacity: level >= 5 ? [0.6, 1, 0.6] : [0.3, 0.5, 0.3] }}
+                    transition={{ duration: level >= 5 ? 1.5 : 4, repeat: Infinity, ease: "easeInOut" }}
+                    className={`absolute inset-0 rounded-full ${current.bg} opacity-50 ${s.glow}`}
                 />
 
                 {/* The Core Totem */}
                 <motion.div
                     animate={{
-                        y: [0, size === 'sm' ? -2 : -10, 0],
-                        rotate: mood === 'hungry' ? [-1, 1, -1] : 0
+                        y: [0, -5 - level, 0],
+                        rotate: level <= 0 ? [-2, 2, -2] : 0, // Shiver if 0 (Gloomy)
+                        scale: level >= 5 ? [1, 1.1, 1] : 1
                     }}
                     transition={{
-                        y: { duration: 2, repeat: Infinity, ease: "easeInOut" },
-                        rotate: { duration: 0.2, repeat: Infinity, repeatDelay: 1 } // Shiver if hungry
+                        y: { duration: 3, repeat: Infinity, ease: "easeInOut" },
+                        rotate: { duration: 0.15, repeat: Infinity, repeatDelay: 3 }, // Shiver burst
+                        scale: { duration: 0.5, repeat: Infinity, repeatDelay: 0.5 } // Heartbeat if MAX
                     }}
-                    className={`relative z-10 ${s.totem} rounded-full ${current.color} ${current.shadow} shadow-lg flex items-center justify-center`}
+                    className={`relative z-10 ${s.totem} rounded-full ${current.bg} ${current.shadow} shadow-lg flex items-center justify-center transition-colors duration-1000`}
                 >
-                    {/* Simple Face */}
-                    <Face mood={mood} className={s.icon} />
+                    {/* Face Logic */}
+                    <Face level={level} className={s.icon} />
                 </motion.div>
             </div>
 
             {size === 'lg' && (
-                <div className="mt-8 text-center">
-                    <h2 className="text-2xl font-bold text-foreground capitalize tracking-widest font-mono">
-                        {mood === 'happy' ? 'RADIANT' : mood}
+                <div className="mt-8 text-center space-y-1">
+                    <h2 className={`text-2xl font-bold tracking-widest font-mono uppercase transition-colors duration-500 ${level >= 5 ? 'text-yellow-400' : 'text-foreground'}`}>
+                        {level === 0 ? 'Depressed' :
+                            level === 1 ? 'Hungry' :
+                                level === 2 ? 'Neutral' :
+                                    level === 3 ? 'Happy' :
+                                        level === 4 ? 'Winding Up' : 'RADIANT'}
                     </h2>
-                    <p className="text-muted-foreground text-sm">Level 1 (Egg)</p>
+                    <p className="text-muted-foreground text-sm">Level {Math.max(1, level)}</p>
                 </div>
             )}
         </div>
     )
 }
 
-function Face({ mood, className }: { mood: string, className?: string }) {
-    if (mood === 'happy') return <CheckCircle2 className={`${className} text-white/50`} />
-    if (mood === 'hungry') return <AlertCircle className={`${className} text-white/50`} />
-    if (mood === 'sick') return <Frown className={`${className} text-white/50`} />
-    return <div className={`w-1/2 h-[10%] bg-white/30 rounded-full`} />
+function Face({ level, className }: { level: number, className?: string }) {
+    if (level <= 0) return <Frown className={`${className} opacity-50`} />
+    if (level === 1) return <AlertCircle className={`${className} opacity-70`} />
+    if (level === 2) return <div className={`w-1/2 h-[10%] bg-white/30 rounded-full`} /> // Neutral Line
+    if (level >= 5) return <CheckCircle2 className={`${className}`} />
+    return <div className={`w-1/2 h-[10%] bg-white/60 rounded-full rotate-3`} /> // Smile
 }
+
+
