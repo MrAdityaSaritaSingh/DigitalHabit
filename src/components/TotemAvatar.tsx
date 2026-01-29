@@ -1,12 +1,18 @@
 import { motion } from 'framer-motion'
 import { CheckCircle2, AlertCircle, Frown } from 'lucide-react'
 
-type TotemMood = 'happy' | 'neutral' | 'hungry' | 'sick'
-
 interface TotemAvatarProps {
-    mood: TotemMood
     level: number
     size?: 'sm' | 'md' | 'lg'
+}
+
+export function getMoodLabel(level: number) {
+    if (level <= 0) return 'Depressed'
+    if (level === 1) return 'Hungry'
+    if (level === 2) return 'Neutral'
+    if (level === 3) return 'Happy'
+    if (level === 4) return 'Winding Up'
+    return 'Radiant'
 }
 
 export function TotemAvatar({ level, size = 'lg' }: TotemAvatarProps) {

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Check, PlusCircle, RefreshCw, Settings as SettingsIcon, LogOut, Pencil } from 'lucide-react'
 import { useTribeStore } from './store/useTribeStore'
-import { TotemAvatar } from './components/TotemAvatar'
+import { TotemAvatar, getMoodLabel } from './components/TotemAvatar'
 import { IntroScreen } from './components/IntroScreen'
 import { getTodayKey, cn, calculateStreak } from './lib/utils'
 
@@ -66,11 +66,10 @@ function UserSelect() {
           const memberTimezone = member.settings.timezone
           const memberToday = getTodayKey(memberOffset, memberTimezone)
           const todayStatus = member.history[memberToday] || [false, false, false, false, false]
-          const allDone = todayStatus.every(Boolean)
-          const isMorning = new Date().getHours() < 12
-          let mood: any = 'neutral'
-          if (allDone) mood = 'happy'
-          else if (!isMorning && todayStatus.filter(Boolean).length < 2) mood = 'hungry'
+
+          const doneCount = todayStatus.filter(Boolean).length
+
+          const moodLabel = getMoodLabel(doneCount)
 
           return (
             <button
@@ -80,7 +79,7 @@ function UserSelect() {
             >
               {/* Mini Totem Preview */}
               <div className="shrink-0">
-                <TotemAvatar mood={mood} level={1} size="sm" />
+                <TotemAvatar level={doneCount} size="sm" />
               </div>
 
               <div className="flex-1 z-10">
@@ -92,7 +91,7 @@ function UserSelect() {
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">{mood === 'happy' ? 'Radiant' : mood}</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">{moodLabel}</p>
               </div>
             </button>
           )
@@ -255,19 +254,8 @@ function Dashboard() {
 
   // Calculate User Mood
   const doneCount = dailyStatus.filter(Boolean).length
-  const allDone = dailyStatus.every(Boolean)
-  const currentHour = new Date().getHours()
-  // Adjust "Morning" logic based on offset? 
-  // Let's keep "Morning" as absolute time < 12 for now, or relative to start of "User Day"?
-  // A simple heuristic: If we are in the last 4 hours of the "User Day", get hungry.
-  // User Day Ends at 24 + offset (e.g. 2AM is 26h).
-  // Current time: 23 (11PM), Offset 2. Effective Hour = 23 (if day started 00).
-  // This is getting complex. Let's stick to simple: If it's PM and habits low.
-  const isMorning = currentHour < 12
 
-  let userMood: any = 'neutral'
-  if (allDone) userMood = 'happy'
-  else if (!isMorning && doneCount < 2) userMood = 'hungry'
+  const statusLabel = getMoodLabel(doneCount)
 
   const streak = calculateStreak(user.history)
 
@@ -400,7 +388,7 @@ function Dashboard() {
         <div className="flex items-center gap-5 relative z-10">
           {/* Avatar */}
           <div className="shrink-0 relative group cursor-help">
-            <TotemAvatar mood={userMood} level={doneCount} size="lg" />
+            <TotemAvatar level={doneCount} size="lg" />
             {doneCount === 5 && (
               <div className="absolute -bottom-1 -right-1 bg-yellow-400 text-yellow-950 text-[10px] font-black px-1.5 py-0.5 rounded-full border border-yellow-200 shadow-sm">
                 MAX
@@ -413,7 +401,7 @@ function Dashboard() {
             <div className="mb-3">
               <h2 className="text-2xl font-black tracking-tight truncate">{user.name}</h2>
               <p className="text-muted-foreground font-medium text-xs flex items-center gap-1.5 uppercase tracking-wider">
-                {userMood === 'happy' ? 'Radiant' : userMood === 'hungry' ? 'Hungry' : 'Chilling'}
+                {statusLabel}
                 <span className="w-1 h-1 rounded-full bg-muted-foreground/30" />
                 {isLoading ? <span className="animate-pulse text-primary">Syncing...</span> : 'Synced'}
               </p>
