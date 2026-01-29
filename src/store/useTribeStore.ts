@@ -172,7 +172,7 @@ export const useTribeStore = create<TribeState>()(
                             date: targetDate,
                             habits: sheetHabits,
                             habitNames: localMember.habits.map(h => h.text),
-                            visitFund: localMember.visitFund,
+                            visitFund: (5 - sheetHabits.filter(h => h === 1).length) * 10,
                             settings: localMember.settings
                         })
                     })

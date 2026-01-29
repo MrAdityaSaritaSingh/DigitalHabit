@@ -4,6 +4,7 @@ import { useTribeStore } from './store/useTribeStore'
 import { TotemAvatar, getMoodLabel } from './components/TotemAvatar'
 import { IntroScreen } from './components/IntroScreen'
 import { getTodayKey, cn, calculateStreak } from './lib/utils'
+import { VisitFundDashboard } from './components/VisitFundDashboard'
 
 export default function App() {
   const { tribeUrl, connectTribe, localUserId } = useTribeStore()
@@ -49,7 +50,9 @@ function UserSelect() {
   }
 
   const [isAdding, setIsAdding] = useState(false)
+  const [showFund, setShowFund] = useState(false)
 
+  if (showFund) return <VisitFundDashboard onBack={() => setShowFund(false)} />
   if (isAdding) return <Onboarding onCancel={() => setIsAdding(false)} />
 
   return (
@@ -105,6 +108,13 @@ function UserSelect() {
             <PlusCircle className="w-6 h-6" />
           </div>
           <span className="font-medium">I'm New Here</span>
+        </button>
+
+        <button
+          onClick={() => setShowFund(true)}
+          className="flex items-center justify-center gap-2 p-4 rounded-xl border bg-gradient-to-r from-orange-500/10 to-red-600/10 border-red-500/20 hover:bg-red-500/10 transition-all text-red-500 font-bold"
+        >
+          <span>💰 View Visit Fund</span>
         </button>
       </div>
 
@@ -413,8 +423,8 @@ function Dashboard() {
                 <span className="font-black text-xl">🔥 {streak}</span>
               </div>
               <div className="bg-red-500/5 text-red-600 px-3 py-1.5 rounded-xl border border-red-500/10 flex flex-col leading-none flex-1">
-                <span className="text-[10px] uppercase font-bold text-red-600/50 mb-1">Fund</span>
-                <span className="font-black text-xl">₹{user.visitFund}</span>
+                <span className="text-[10px] uppercase font-bold text-red-600/50 mb-1">Fine Due</span>
+                <span className="font-black text-xl">₹{(5 - doneCount) * 10}</span>
               </div>
             </div>
           </div>
