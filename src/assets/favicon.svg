@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Background circle -->
+  <circle cx="32" cy="32" r="32" fill="#000000"/>
+  
+  <!-- Outer glow -->
+  <circle cx="32" cy="32" r="28" fill="url(#gradient1)" opacity="0.3"/>
+  
+  <!-- Totem base -->
+  <rect x="22" y="18" width="20" height="28" rx="4" fill="url(#gradient2)"/>
+  
+  <!-- Eyes -->
+  <circle cx="26" cy="28" r="3" fill="#000000"/>
+  <circle cx="38" cy="28" r="3" fill="#000000"/>
+  
+  <!-- Eye highlights -->
+  <circle cx="26.5" cy="27.5" r="1" fill="#FFD700"/>
+  <circle cx="38.5" cy="27.5" r="1" fill="#FFD700"/>
+  
+  <!-- Nose/mouth accent -->
+  <path d="M 28 34 Q 32 36 36 34" stroke="#000000" stroke-width="2" fill="none" stroke-linecap="round"/>
+  
+  <!-- Ritual marks (5 dots representing 5 daily rituals) -->
+  <circle cx="32" cy="42" r="1.5" fill="#FFD700"/>
+  <circle cx="27" cy="40" r="1.5" fill="#FFD700" opacity="0.7"/>
+  <circle cx="37" cy="40" r="1.5" fill="#FFD700" opacity="0.7"/>
+  <circle cx="24" cy="38" r="1.5" fill="#FFD700" opacity="0.5"/>
+  <circle cx="40" cy="38" r="1.5" fill="#FFD700" opacity="0.5"/>
+  
+  <!-- Flame/energy on top -->
+  <path d="M 32 16 Q 34 12 32 8 Q 30 12 32 16" fill="url(#flameGradient)"/>
+  <path d="M 32 16 Q 29 13 28 10" fill="url(#flameGradient)" opacity="0.6"/>
+  <path d="M 32 16 Q 35 13 36 10" fill="url(#flameGradient)" opacity="0.6"/>
+  
+  <!-- Gradients -->
+  <defs>
+    <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#EA580C;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#DC2626;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="gradient2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#F97316;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#EA580C;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#DC2626;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="flameGradient" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" style="stop-color:#FBBF24;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FCD34D;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+</svg>
