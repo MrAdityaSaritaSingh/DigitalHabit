@@ -9,7 +9,7 @@ interface TotemAvatarProps {
     size?: 'sm' | 'md' | 'lg'
 }
 
-export function TotemAvatar({ mood, level, size = 'lg' }: TotemAvatarProps) {
+export function TotemAvatar({ level, size = 'lg' }: TotemAvatarProps) {
     // 0-5 Mapping for Gradient (Gloomy Grey -> Bright Golden)
     // 0: Gloomy Grey
     // 1: Dark Orange-Grey
@@ -27,11 +27,7 @@ export function TotemAvatar({ mood, level, size = 'lg' }: TotemAvatarProps) {
         return { bg: 'bg-yellow-300', shadow: 'shadow-yellow-400/80', icon: 'text-white' }
     }
 
-    const getPulse = (lvl: number) => {
-        if (lvl <= 0) return 0 // Shiver instead
-        if (lvl === 5) return 2 // Intense pulse
-        return 4 // Gentle breath
-    }
+
 
     const current = getColor(level)
 

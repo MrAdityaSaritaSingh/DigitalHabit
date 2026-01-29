@@ -241,7 +241,7 @@ function Dashboard() {
 
   if (!user) return null
 
-  const { habits, history } = user
+  const { history } = user
   // Use selected date instead of fixed today
   const dailyStatus = history[selectedDate] || [false, false, false, false, false]
 
