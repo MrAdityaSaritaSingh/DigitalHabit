@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { Check, PlusCircle, RefreshCw, Settings as SettingsIcon, LogOut } from 'lucide-react'
+import { Check, PlusCircle, RefreshCw, Settings as SettingsIcon, LogOut, Pencil } from 'lucide-react'
 import { useTribeStore } from './store/useTribeStore'
 import { TotemAvatar } from './components/TotemAvatar'
 import { IntroScreen } from './components/IntroScreen'
@@ -452,7 +452,7 @@ function Dashboard() {
                 onClick={() => setIsEditing(!isEditing)}
                 className={cn("p-1.5 rounded-full transition-colors", isEditing ? "bg-primary text-primary-foreground" : "hover:bg-secondary text-muted-foreground")}
               >
-                <RefreshCw className={cn("w-3.5 h-3.5", isEditing && "rotate-180")} />
+                <Pencil className="w-3.5 h-3.5" />
               </button>
             </div>
             <button onClick={() => syncTribe(selectedDate)} disabled={isLoading} className="text-xs bg-secondary/50 hover:bg-secondary px-3 py-1.5 rounded-full transition-colors flex items-center gap-1.5 font-medium">
