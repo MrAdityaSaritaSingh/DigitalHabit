@@ -56,6 +56,7 @@ function doGet(e) {
     }
 
     const history = {};
+    const historyFunds = {}; // New: Track funds per day
     let visitFund = 0;
     let userId = "";
 
@@ -75,19 +76,25 @@ function doGet(e) {
       }
       history[dateKey] = dailyStatus;
 
-      visitFund = Number(row[6]) || 0;
+      // Capture daily fund value
+      let dailyFund = Number(row[6]);
+      if (isNaN(dailyFund)) dailyFund = 0;
+      historyFunds[dateKey] = dailyFund;
+
+      visitFund = dailyFund; // Last row value serves as "current" if needed, though mostly unused now
       if (row[7]) userId = String(row[7]);
     }
 
     if (userId) {
       if (!members[userId]) {
-        members[userId] = { id: userId, name: sheetName, settings: {}, history: {}, visitFund: 0, habits: [] };
+        members[userId] = { id: userId, name: sheetName, settings: {}, history: {}, visitFund: 0, habits: [], historyFunds: {} };
       }
       // If we didn't get habits from _Members, use the ones from the sheet headers
       if (!members[userId].habits || members[userId].habits.length === 0) {
           members[userId].habits = sheetHabits;
       }
       members[userId].history = history;
+      members[userId].historyFunds = historyFunds; // Send history map
       members[userId].visitFund = visitFund;
     }
   });

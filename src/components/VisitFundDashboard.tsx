@@ -32,7 +32,14 @@ export function VisitFundDashboard({ onBack }: VisitFundDashboardProps) {
             monthlyDates.forEach(date => {
                 const dayStatus = member.history[date]
                 const dailyCompleted = dayStatus.filter(Boolean).length
-                const dailyPenalty = (5 - dailyCompleted) * 10
+
+                // Priority: Use Sheet Data (historyFunds) -> Fallback: Calculate
+                let dailyPenalty = 0
+                if (member.historyFunds && member.historyFunds[date] !== undefined) {
+                    dailyPenalty = member.historyFunds[date]
+                } else {
+                    dailyPenalty = (5 - dailyCompleted) * 10
+                }
 
                 totalHabits += 5
                 completedHabits += dailyCompleted

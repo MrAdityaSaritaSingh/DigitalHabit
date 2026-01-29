@@ -14,6 +14,8 @@ export type TribeMember = {
     // Map of Date "YYYY-MM-DD" -> Map of Index (0-4) -> New Text
     overrides?: Record<string, Record<number, string>>
     history: { [date: string]: boolean[] }
+    // Map of Date "YYYY-MM-DD" -> Daily Fund Value (from sheet column 6)
+    historyFunds?: Record<string, number>
     visitFund: number
     settings: UserSettings
 }
