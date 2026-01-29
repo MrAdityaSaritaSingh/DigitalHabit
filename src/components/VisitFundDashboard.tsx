@@ -98,7 +98,7 @@ export function VisitFundDashboard({ onBack }: VisitFundDashboardProps) {
                         </div>
                         <div className="flex items-center justify-center gap-1">
                             <span className="text-4xl font-black text-white/50">₹</span>
-                            <span className="text-7xl font-black tracking-tighter text-white drop-shadow-sm">
+                            <span className="text-5xl sm:text-7xl font-black tracking-tighter text-white drop-shadow-sm">
                                 {stats.grandTotal.toLocaleString()}
                             </span>
                         </div>

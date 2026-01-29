@@ -26,8 +26,8 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4 font-sans selection:bg-yellow-500/30">
-      <div className="w-full max-w-md space-y-8">
+    <div className="min-h-screen bg-background text-foreground flex items-start pt-8 md:items-center md:pt-0 justify-center p-4 font-sans selection:bg-yellow-500/30">
+      <div className="w-full max-w-md space-y-8 pb-10 md:pb-0">
         {/* If we have a tribe but no local user identity yet, we need to pick/create one */}
         {/* For MVP let's assume if you join a mock, you pick one, or create new */}
         {!localUserId ? <UserSelect /> : <Dashboard />}
@@ -395,7 +395,7 @@ function Dashboard() {
 
       {/* Hero Status Card */}
       <div className="bg-card border rounded-3xl p-6 relative overflow-hidden ring-1 ring-border/50 shadow-sm">
-        <div className="flex items-center gap-5 relative z-10">
+        <div className="flex flex-col sm:flex-row items-center gap-5 relative z-10 text-center sm:text-left">
           {/* Avatar */}
           <div className="shrink-0 relative group cursor-help">
             <TotemAvatar level={doneCount} size="lg" />
@@ -407,17 +407,17 @@ function Dashboard() {
           </div>
 
           {/* Stats */}
-          <div className="flex-1 min-w-0">
-            <div className="mb-3">
+          <div className="flex-1 min-w-0 w-full">
+            <div className="mb-4 sm:mb-3">
               <h2 className="text-2xl font-black tracking-tight truncate">{user.name}</h2>
-              <p className="text-muted-foreground font-medium text-xs flex items-center gap-1.5 uppercase tracking-wider">
+              <p className="text-muted-foreground font-medium text-xs flex items-center justify-center sm:justify-start gap-1.5 uppercase tracking-wider">
                 {statusLabel}
                 <span className="w-1 h-1 rounded-full bg-muted-foreground/30" />
                 {isLoading ? <span className="animate-pulse text-primary">Syncing...</span> : 'Synced'}
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="grid grid-cols-2 sm:flex items-center gap-3">
               <div className="bg-orange-500/5 text-orange-600 px-3 py-1.5 rounded-xl border border-orange-500/10 flex flex-col leading-none flex-1">
                 <span className="text-[10px] uppercase font-bold text-orange-600/50 mb-1">Streak</span>
                 <span className="font-black text-xl">🔥 {streak}</span>
